@@ -84,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- UI State Helpers ---
 
     function setLoading(isLoading) {
+        const btnExportCsv = document.getElementById('btn-export-csv');
         if (isLoading) {
             loadingState.style.display = 'flex';
             errorState.style.display = 'none';
@@ -91,10 +92,14 @@ document.addEventListener('DOMContentLoaded', () => {
             notesGrid.style.display = 'none';
             btnRefresh.disabled = true;
             spinnerIcon.classList.add('spin');
+            if (btnExportCsv) btnExportCsv.style.display = 'none';
         } else {
             loadingState.style.display = 'none';
             btnRefresh.disabled = false;
             spinnerIcon.classList.remove('spin');
+            if (btnExportCsv && releaseUpdates.length > 0) {
+                btnExportCsv.style.display = 'inline-flex';
+            }
         }
     }
 
@@ -177,6 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="${getBadgeClass(update.type)}">${update.type}</span>
                             </div>
                             <div class="note-actions">
+                                <button class="card-copy-btn" data-id="${update.id}" title="Copy update to clipboard">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
                                 <button class="card-tweet-btn" data-id="${update.id}" title="Compose Tweet for this update">
                                     <i class="fa-brands fa-x-twitter"></i>
                                 </button>
@@ -214,6 +222,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 updateSelectionUI();
+            });
+        });
+
+        // Click on individual card Copy buttons
+        document.querySelectorAll('.card-copy-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const btnEl = e.currentTarget;
+                const id = btnEl.dataset.id;
+                const update = releaseUpdates.find(up => up.id === id);
+                if (update) {
+                    navigator.clipboard.writeText(update.text).then(() => {
+                        const icon = btnEl.querySelector('i');
+                        icon.className = 'fa-solid fa-circle-check';
+                        showToast('Update copied to clipboard!');
+                        setTimeout(() => {
+                            icon.className = 'fa-regular fa-copy';
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('Copy failed:', err);
+                        showToast('Failed to copy text.');
+                    });
+                }
             });
         });
 
@@ -451,6 +482,66 @@ document.addEventListener('DOMContentLoaded', () => {
         window.open(twitterUrl, '_blank', 'noopener,noreferrer');
         closeTweetModal();
     });
+
+    // Export to CSV click handler
+    const btnExportCsv = document.getElementById('btn-export-csv');
+    if (btnExportCsv) {
+        btnExportCsv.addEventListener('click', () => {
+            let itemsToExport = [];
+            
+            // Check if any specific updates are selected
+            if (selectedUpdateIds.size > 0) {
+                itemsToExport = releaseUpdates.filter(up => selectedUpdateIds.has(up.id));
+            } else {
+                // If not, export visible filtered items
+                itemsToExport = releaseUpdates.filter(up => {
+                    const matchesType = currentFilterType === 'all' || up.type.toLowerCase() === currentFilterType.toLowerCase();
+                    const matchesSearch = !currentSearchQuery || 
+                        up.date.toLowerCase().includes(currentSearchQuery) ||
+                        up.type.toLowerCase().includes(currentSearchQuery) ||
+                        up.text.toLowerCase().includes(currentSearchQuery);
+                    return matchesType && matchesSearch;
+                });
+            }
+            
+            if (itemsToExport.length === 0) {
+                showToast('No updates available to export.');
+                return;
+            }
+            
+            // Generate CSV
+            const csvRows = [['Date', 'Type', 'Description']];
+            itemsToExport.forEach(item => {
+                // Escape quotes inside fields
+                const escapedDate = item.date.replace(/"/g, '""');
+                const escapedType = item.type.replace(/"/g, '""');
+                const escapedText = item.text.replace(/"/g, '""');
+                csvRows.push([
+                    `"${escapedDate}"`,
+                    `"${escapedType}"`,
+                    `"${escapedText}"`
+                ]);
+            });
+            
+            const csvContent = csvRows.map(row => row.join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const exportSource = selectedUpdateIds.size > 0 ? 'selected' : currentFilterType;
+            link.setAttribute('download', `bigquery_release_notes_${exportSource}_${dateStr}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showToast(`Exported ${itemsToExport.length} updates to CSV!`);
+        });
+    }
 
     // --- Init ---
     fetchReleaseNotes();

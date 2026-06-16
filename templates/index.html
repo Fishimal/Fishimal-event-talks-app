@@ -32,7 +32,11 @@
                 </div>
             </div>
             
-            <div class="header-actions">
+            <div class="header-actions" style="display: flex; gap: 0.5rem;">
+                <button id="btn-export-csv" class="btn btn-secondary" title="Export current updates to CSV" style="display: none;">
+                    <i class="fa-solid fa-file-csv"></i>
+                    <span>Export CSV</span>
+                </button>
                 <button id="btn-refresh" class="btn btn-primary btn-glow" title="Refresh Release Notes">
                     <i class="fa-solid fa-arrows-rotate refresh-icon" id="spinner-icon"></i>
                     <span>Refresh</span>
