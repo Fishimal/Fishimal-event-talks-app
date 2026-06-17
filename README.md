@@ -6,12 +6,13 @@ A premium web application built with **Python Flask** and vanilla **HTML, CSS, a
 
 ## ✨ Features
 
-* **Granular Parsing**: Splits daily aggregated entries in the feed into individual, category-coded update cards (Features, Issues, Changed, Deprecated, Fixed).
-* **Live Stats**: Displays real-time dashboards listing total updates, feature releases, issue tickets, and code modifications.
+* **Granular Parsing**: Splits daily aggregated entries in the feed into individual, category-coded update cards (Features, Issues, Changed, Deprecated, Fixed, Announcements).
+* **Live Stats**: Displays real-time dashboards listing total updates, feature releases, issue tickets, changes/deprecations, and official announcements.
 * **Instant Filtering & Search**: Filter updates by category type instantly or search through update descriptions, dates, and titles.
-* **Batch Tweet Drafting**: Select single or multiple updates using checkmarks, bringing up a sticky action bar to compile summary threads automatically.
-* **Interactive Tweet Composer**: Includes a Twitter/X draft popup equipped with a circular SVG progress ring character tracker (exactly like Twitter's native interface) that changes color as you approach the 280-character limit.
-* **Double Actions**: Share directly to Twitter using the Web Intent URL, or copy to your clipboard with a custom floating toast notification fallback.
+* **Ergonomic Card Selection**: Toggles card selection by clicking anywhere on a card's body, avoiding links, buttons, and code blocks for fluid mobile and desktop navigation.
+* **Batch Select & Deselect**: Click the "Select All Visible" button to bulk-select or bulk-deselect all updates matching the active search query or filter tags.
+* **Dynamic Tweet Thread Composer**: Selecting multiple updates opens an interactive tweet-threading modal that builds a sequential Twitter/X thread draft (`1/N`, `2/N`, etc.). Includes separate textareas for each post, individual copy triggers, and circular SVG progress ring character trackers.
+* **Double Actions**: Share directly to Twitter/X using the Web Intent URL (with helper copy/paste toast guides for threads), or copy drafts to your clipboard with floating toast confirmation notifications.
 
 ---
 
@@ -65,7 +66,7 @@ python3 app.py
 
 ### 4. Open the application
 Open your web browser and navigate to:
-**[http://127.0.0.1:5001](http://127.0.0.1:5001)**
+**[http://127.0.0.1:5002](http://127.0.0.1:5002)**
 
 ---
 
