@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedUpdateIds = new Set();
     let currentFilterType = 'all';
     let currentSearchQuery = '';
+    let activeTweets = []; // Holds the active drafts in the modal
 
     // DOM Elements
     const btnRefresh = document.getElementById('btn-refresh');
@@ -16,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearSearchBtn = document.getElementById('clear-search');
     const typeFilters = document.getElementById('type-filters');
     const notesGrid = document.getElementById('notes-grid');
+    const btnSelectAllFiltered = document.getElementById('btn-select-all-filtered');
     
     // States
     const loadingState = document.getElementById('loading-state');
@@ -30,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const valFeatures = document.getElementById('val-features');
     const valIssues = document.getElementById('val-issues');
     const valChanges = document.getElementById('val-changes');
+    const valAnnouncements = document.getElementById('val-announcements');
     
     // Selection Bar
     const selectionBar = document.getElementById('selection-bar');
@@ -40,25 +43,18 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Modal
     const tweetModal = document.getElementById('tweet-modal');
-    const tweetTextarea = document.getElementById('tweet-textarea');
     const closeModalBtn = document.getElementById('close-modal');
     const btnCopyTweet = document.getElementById('btn-copy-tweet');
     const btnPostTweet = document.getElementById('btn-post-tweet');
     const copyTextSpan = document.getElementById('copy-text');
-    const charProgressCircle = document.getElementById('char-progress');
-    const charCountText = document.getElementById('char-count-text');
     
     // Toast
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toast-message');
 
-    // Progress Ring Setup
+    // Progress Ring Setup Constants
     const radius = 14;
     const circumference = 2 * Math.PI * radius;
-    if (charProgressCircle) {
-        charProgressCircle.style.strokeDasharray = circumference;
-        charProgressCircle.style.strokeDashoffset = circumference;
-    }
 
     // --- API Calls ---
 
@@ -95,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnRefresh.disabled = true;
             spinnerIcon.classList.add('spin');
             if (btnExportCsv) btnExportCsv.style.display = 'none';
+            if (btnSelectAllFiltered) btnSelectAllFiltered.style.display = 'none';
         } else {
             loadingState.style.display = 'none';
             btnRefresh.disabled = false;
@@ -110,6 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
         errorState.style.display = 'flex';
         errorMessage.textContent = msg;
         notesGrid.style.display = 'none';
+        if (btnSelectAllFiltered) btnSelectAllFiltered.style.display = 'none';
     }
 
     function updateStats() {
@@ -117,13 +115,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         valTotal.textContent = releaseUpdates.length;
         
-        const features = releaseUpdates.filter(up => up.type === 'Feature').length;
-        const issues = releaseUpdates.filter(up => up.type === 'Issue' || up.type === 'Fixed').length;
-        const changes = releaseUpdates.filter(up => up.type === 'Changed' || up.type === 'Deprecated').length;
+        const features = releaseUpdates.filter(up => up.type.toLowerCase() === 'feature').length;
+        const issues = releaseUpdates.filter(up => ['issue', 'fixed', 'known issue'].includes(up.type.toLowerCase())).length;
+        const changes = releaseUpdates.filter(up => ['change', 'changed', 'breaking', 'deprecated'].includes(up.type.toLowerCase())).length;
+        const announcements = releaseUpdates.filter(up => up.type.toLowerCase() === 'announcement').length;
         
         valFeatures.textContent = features;
         valIssues.textContent = issues;
         valChanges.textContent = changes;
+        if (valAnnouncements) {
+            valAnnouncements.textContent = announcements;
+        }
     }
 
     // --- Rendering Logic ---
@@ -131,9 +133,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function getBadgeClass(type) {
         const t = type.toLowerCase();
         if (t === 'feature') return 'badge feature';
-        if (t === 'issue' || t === 'fixed') return 'badge issue';
-        if (t === 'changed') return 'badge changed';
+        if (t === 'issue' || t === 'fixed' || t === 'known issue') return 'badge issue';
+        if (t === 'change' || t === 'changed' || t === 'breaking') return 'badge changed';
         if (t === 'deprecated') return 'badge deprecated';
+        if (t === 'announcement') return 'badge announcement';
         return 'badge default';
     }
 
@@ -141,7 +144,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Filter elements
         const filtered = releaseUpdates.filter(up => {
             // Type Filter
-            const matchesType = currentFilterType === 'all' || up.type.toLowerCase() === currentFilterType.toLowerCase();
+            let matchesType = false;
+            if (currentFilterType === 'all') {
+                matchesType = true;
+            } else if (currentFilterType.toLowerCase() === 'feature') {
+                matchesType = up.type.toLowerCase() === 'feature';
+            } else if (currentFilterType.toLowerCase() === 'issue') {
+                matchesType = ['issue', 'fixed', 'known issue'].includes(up.type.toLowerCase());
+            } else if (currentFilterType.toLowerCase() === 'changed') {
+                matchesType = ['change', 'changed', 'breaking', 'deprecated'].includes(up.type.toLowerCase());
+            } else if (currentFilterType.toLowerCase() === 'announcement') {
+                matchesType = up.type.toLowerCase() === 'announcement';
+            }
             
             // Search Filter
             const matchesSearch = !currentSearchQuery || 
@@ -153,9 +167,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Show/Hide Grid or Empty State
-        if (filtered.length === 0) {
+        if (releaseUpdates.length === 0) {
             notesGrid.style.display = 'none';
             emptyState.style.display = 'flex';
+            emptyState.querySelector('h3').textContent = 'No updates found';
+            emptyState.querySelector('p').textContent = 'The release notes feed is currently empty.';
+            btnResetSearch.style.display = 'none';
+            if (btnSelectAllFiltered) btnSelectAllFiltered.style.display = 'none';
+        } else if (filtered.length === 0) {
+            notesGrid.style.display = 'none';
+            emptyState.style.display = 'flex';
+            emptyState.querySelector('h3').textContent = 'No updates match your search';
+            emptyState.querySelector('p').textContent = 'Try refining your filters or search terms.';
+            btnResetSearch.style.display = 'block';
+            if (btnSelectAllFiltered) btnSelectAllFiltered.style.display = 'none';
         } else {
             emptyState.style.display = 'none';
             notesGrid.style.display = 'grid';
@@ -203,14 +228,67 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Re-attach event listeners to new cards
             attachCardEventListeners();
+
+            // Update Select All Filtered button
+            if (btnSelectAllFiltered) {
+                btnSelectAllFiltered.style.display = 'inline-flex';
+                const allFilteredSelected = filtered.every(up => selectedUpdateIds.has(up.id));
+                const icon = btnSelectAllFiltered.querySelector('i');
+                const text = btnSelectAllFiltered.querySelector('span');
+                if (allFilteredSelected) {
+                    icon.className = 'fa-solid fa-square-minus';
+                    text.textContent = 'Deselect All Visible';
+                } else {
+                    icon.className = 'fa-solid fa-square-check';
+                    text.textContent = 'Select All Visible';
+                }
+            }
         }
         
         updateSelectionUI();
     }
 
     function attachCardEventListeners() {
-        // Checkbox changes
+        // Card Body Click Selection (Change 1)
+        document.querySelectorAll('.note-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                // Ignore clicks on checkboxes, links, copy/tweet buttons, or code snippets
+                if (
+                    e.target.closest('a') || 
+                    e.target.closest('button') || 
+                    e.target.closest('.card-tweet-btn') || 
+                    e.target.closest('.card-copy-btn') ||
+                    e.target.closest('.custom-checkbox') ||
+                    e.target.closest('code')
+                ) {
+                    return;
+                }
+                
+                const id = card.dataset.id;
+                const checkbox = card.querySelector('.note-checkbox');
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    if (checkbox.checked) {
+                        selectedUpdateIds.add(id);
+                        card.classList.add('selected');
+                    } else {
+                        selectedUpdateIds.delete(id);
+                        card.classList.remove('selected');
+                    }
+                    updateSelectionUI();
+                    
+                    // Sync the "Select All Filtered" button text/icon
+                    syncSelectAllButtonState();
+                }
+            });
+        });
+
+        // Checkbox click event propagation block
         document.querySelectorAll('.note-checkbox').forEach(cb => {
+            cb.addEventListener('click', (e) => {
+                e.stopPropagation(); // Avoid triggering card body click toggle
+            });
+            
             cb.addEventListener('change', (e) => {
                 const id = e.target.dataset.id;
                 const card = document.getElementById(`card-${id}`);
@@ -224,6 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 updateSelectionUI();
+                syncSelectAllButtonState();
             });
         });
 
@@ -264,6 +343,46 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function syncSelectAllButtonState() {
+        if (!btnSelectAllFiltered) return;
+        
+        // Get currently filtered updates
+        const filtered = releaseUpdates.filter(up => {
+            let matchesType = false;
+            if (currentFilterType === 'all') {
+                matchesType = true;
+            } else if (currentFilterType.toLowerCase() === 'feature') {
+                matchesType = up.type.toLowerCase() === 'feature';
+            } else if (currentFilterType.toLowerCase() === 'issue') {
+                matchesType = ['issue', 'fixed', 'known issue'].includes(up.type.toLowerCase());
+            } else if (currentFilterType.toLowerCase() === 'changed') {
+                matchesType = ['change', 'changed', 'breaking', 'deprecated'].includes(up.type.toLowerCase());
+            } else if (currentFilterType.toLowerCase() === 'announcement') {
+                matchesType = up.type.toLowerCase() === 'announcement';
+            }
+            
+            const matchesSearch = !currentSearchQuery || 
+                up.date.toLowerCase().includes(currentSearchQuery) ||
+                up.type.toLowerCase().includes(currentSearchQuery) ||
+                up.text.toLowerCase().includes(currentSearchQuery);
+                
+            return matchesType && matchesSearch;
+        });
+
+        if (filtered.length > 0) {
+            const allFilteredSelected = filtered.every(up => selectedUpdateIds.has(up.id));
+            const icon = btnSelectAllFiltered.querySelector('i');
+            const text = btnSelectAllFiltered.querySelector('span');
+            if (allFilteredSelected) {
+                icon.className = 'fa-solid fa-square-minus';
+                text.textContent = 'Deselect All Visible';
+            } else {
+                icon.className = 'fa-solid fa-square-check';
+                text.textContent = 'Select All Visible';
+            }
+        }
+    }
+
     // --- Selection UI ---
 
     function updateSelectionUI() {
@@ -279,45 +398,158 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Tweet Creation and Modal ---
 
-    function generateTweetText(updates) {
-        if (updates.length === 1) {
-            const up = updates[0];
-            // Format single tweet nicely
-            const header = `📢 BigQuery ${up.type} (${up.date}):\n\n`;
+    function generateSingleTweetText(up) {
+        const header = `📢 BigQuery ${up.type} (${up.date}):\n\n`;
+        const footer = `\n\n#GoogleCloud #BigQuery`;
+        
+        // Limit description size to fit in tweet limit
+        const allowedDescLength = 280 - header.length - footer.length;
+        let desc = up.text;
+        if (desc.length > allowedDescLength) {
+            desc = desc.substring(0, allowedDescLength - 3) + '...';
+        }
+        return `${header}${desc}${footer}`;
+    }
+
+    function generateThreadTexts(updates) {
+        const total = updates.length;
+        return updates.map((up, idx) => {
+            const header = `📢 BigQuery ${up.type} (${up.date}) (${idx + 1}/${total}):\n\n`;
             const footer = `\n\n#GoogleCloud #BigQuery`;
             
-            // Limit description size to fit in tweet limit
             const allowedDescLength = 280 - header.length - footer.length;
             let desc = up.text;
             if (desc.length > allowedDescLength) {
                 desc = desc.substring(0, allowedDescLength - 3) + '...';
             }
             return `${header}${desc}${footer}`;
-        } else {
-            // Bulk update tweet (e.g. multiple items)
-            let text = `🚀 Latest BigQuery Updates:\n\n`;
-            
-            updates.forEach((up, idx) => {
-                const bullet = `🔹 [${up.type}] ${up.text}`;
-                // Keep brief summaries
-                const summary = bullet.length > 80 ? bullet.substring(0, 77) + '...' : bullet;
-                text += `${summary}\n`;
-            });
-            
-            text += `\n#GoogleCloud #BigQuery`;
-            
-            // If it exceeds, truncate it intelligently
-            if (text.length > 280) {
-                text = text.substring(0, 277) + '...';
-            }
-            return text;
-        }
+        });
     }
 
     function openTweetModal(updates) {
-        const tweetText = generateTweetText(updates);
-        tweetTextarea.value = tweetText;
-        updateCharCount();
+        const modalContainer = document.getElementById('modal-body-container');
+        if (!modalContainer) return;
+
+        if (updates.length === 1) {
+            // Render Single Composer
+            const up = updates[0];
+            const tweetText = generateSingleTweetText(up);
+            activeTweets = [tweetText];
+
+            modalContainer.innerHTML = `
+                <div class="single-composer">
+                    <div class="tweet-preview-header">
+                        <div class="avatar">BQ</div>
+                        <div class="user-meta">
+                            <span class="user-name">BigQuery News</span>
+                            <span class="user-handle">@BigQueryRelease</span>
+                        </div>
+                    </div>
+                    <textarea id="tweet-textarea" class="tweet-textarea" placeholder="What's happening in BigQuery?"></textarea>
+                    <div class="tweet-meta-controls">
+                        <div class="tweet-char-counter">
+                            <svg class="progress-ring" width="36" height="36">
+                                <circle class="progress-ring__circle-bg" stroke="var(--ring-bg)" stroke-width="3" fill="transparent" r="14" cx="18" cy="18" />
+                                <circle class="progress-ring__circle" id="char-progress" stroke="#06b6d4" stroke-width="3" fill="transparent" r="14" cx="18" cy="18" />
+                            </svg>
+                            <span class="char-count" id="char-count-text">280</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Wire up elements & values
+            const textarea = document.getElementById('tweet-textarea');
+            textarea.value = tweetText;
+            
+            // Set footer button text
+            copyTextSpan.textContent = 'Copy Text';
+            btnPostTweet.querySelector('span').textContent = 'Tweet on X';
+
+            // Events
+            textarea.addEventListener('input', () => {
+                activeTweets[0] = textarea.value;
+                updateCharCountForSingle(textarea);
+            });
+
+            updateCharCountForSingle(textarea);
+
+        } else {
+            // Render Thread Composer (Change 1)
+            const threadTexts = generateThreadTexts(updates);
+            activeTweets = [...threadTexts];
+
+            let html = `<div class="thread-composer" style="max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">`;
+            
+            updates.forEach((up, idx) => {
+                html += `
+                    <div class="thread-tweet-item">
+                        <div class="tweet-preview-header">
+                            <div class="avatar">BQ</div>
+                            <div class="user-meta">
+                                <span class="user-name">BigQuery News</span>
+                                <span class="user-handle">@BigQueryRelease (${idx + 1}/${updates.length})</span>
+                            </div>
+                        </div>
+                        <textarea class="tweet-textarea thread-textarea" data-index="${idx}" placeholder="Draft tweet...">${threadTexts[idx]}</textarea>
+                        <div class="tweet-meta-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem;">
+                            <button class="btn btn-secondary btn-sm btn-copy-thread-item" data-index="${idx}" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; height: auto;">
+                                <i class="fa-regular fa-copy"></i>
+                                <span>Copy Tweet ${idx + 1}</span>
+                            </button>
+                            <div class="tweet-char-counter">
+                                <svg class="progress-ring" width="36" height="36">
+                                    <circle class="progress-ring__circle-bg" stroke="var(--ring-bg)" stroke-width="3" fill="transparent" r="14" cx="18" cy="18" />
+                                    <circle class="progress-ring__circle thread-char-progress" data-index="${idx}" stroke="#06b6d4" stroke-width="3" fill="transparent" r="14" cx="18" cy="18" />
+                                </svg>
+                                <span class="char-count thread-char-count-text" data-index="${idx}">280</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+            modalContainer.innerHTML = html;
+
+            // Set footer button text
+            copyTextSpan.textContent = 'Copy Entire Thread';
+            btnPostTweet.querySelector('span').textContent = 'Post Thread (1st Tweet)';
+
+            // Listeners for textareas
+            const textareas = modalContainer.querySelectorAll('.thread-textarea');
+            textareas.forEach(ta => {
+                ta.addEventListener('input', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    activeTweets[idx] = e.target.value;
+                    updateCharCountForThreadItem(e.target);
+                    checkPostButtonStateForThread();
+                });
+                updateCharCountForThreadItem(ta);
+            });
+
+            // Listeners for individual copy buttons
+            modalContainer.querySelectorAll('.btn-copy-thread-item').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const idx = parseInt(btn.dataset.index);
+                    const tweetText = activeTweets[idx];
+                    navigator.clipboard.writeText(tweetText).then(() => {
+                        btn.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span>Copied!</span>`;
+                        showToast(`Tweet ${idx + 1} copied!`);
+                        setTimeout(() => {
+                            btn.innerHTML = `<i class="fa-regular fa-copy"></i> <span>Copy Tweet ${idx + 1}</span>`;
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('Failed to copy thread item:', err);
+                        showToast('Failed to copy tweet.');
+                    });
+                });
+            });
+
+            checkPostButtonStateForThread();
+        }
+
         tweetModal.style.display = 'flex';
         document.body.style.overflow = 'hidden'; // Lock background scroll
     }
@@ -328,35 +560,85 @@ document.addEventListener('DOMContentLoaded', () => {
         copyTextSpan.textContent = 'Copy Text';
     }
 
-    function updateCharCount() {
-        const text = tweetTextarea.value;
-        const len = text.length;
+    function updateCharCountForSingle(textarea) {
+        const charProgressCircle = document.getElementById('char-progress');
+        const charCountText = document.getElementById('char-count-text');
+
+        const len = textarea.value.length;
         const limit = 280;
         const remaining = limit - len;
         
-        charCountText.textContent = remaining;
+        if (charCountText) charCountText.textContent = remaining;
         
         // Progress ring logic
         const percent = Math.min(100, (len / limit) * 100);
         const offset = circumference - (percent / 100) * circumference;
-        charProgressCircle.style.strokeDashoffset = offset;
+        if (charProgressCircle) {
+            charProgressCircle.style.strokeDasharray = circumference;
+            charProgressCircle.style.strokeDashoffset = offset;
+        }
         
         // Color changes based on limit
         if (remaining < 0) {
-            charCountText.className = 'char-count danger';
-            charProgressCircle.style.stroke = 'var(--error)';
+            if (charCountText) charCountText.className = 'char-count danger';
+            if (charProgressCircle) charProgressCircle.style.stroke = 'var(--error)';
             btnPostTweet.disabled = true;
             btnPostTweet.style.opacity = 0.5;
             btnPostTweet.style.cursor = 'not-allowed';
         } else if (remaining <= 40) {
-            charCountText.className = 'char-count warning';
-            charProgressCircle.style.stroke = 'var(--warning)';
+            if (charCountText) charCountText.className = 'char-count warning';
+            if (charProgressCircle) charProgressCircle.style.stroke = 'var(--warning)';
             btnPostTweet.disabled = false;
             btnPostTweet.style.opacity = 1;
             btnPostTweet.style.cursor = 'pointer';
         } else {
-            charCountText.className = 'char-count';
-            charProgressCircle.style.stroke = 'var(--primary-accent)';
+            if (charCountText) charCountText.className = 'char-count';
+            if (charProgressCircle) charProgressCircle.style.stroke = 'var(--primary-accent)';
+            btnPostTweet.disabled = false;
+            btnPostTweet.style.opacity = 1;
+            btnPostTweet.style.cursor = 'pointer';
+        }
+    }
+
+    function updateCharCountForThreadItem(textarea) {
+        const idx = textarea.dataset.index;
+        const parent = textarea.closest('.thread-tweet-item');
+        const charProgressCircle = parent.querySelector(`.thread-char-progress`);
+        const charCountText = parent.querySelector(`.thread-char-count-text`);
+
+        const len = textarea.value.length;
+        const limit = 280;
+        const remaining = limit - len;
+        
+        if (charCountText) charCountText.textContent = remaining;
+        
+        const percent = Math.min(100, (len / limit) * 100);
+        const offset = circumference - (percent / 100) * circumference;
+        if (charProgressCircle) {
+            charProgressCircle.style.strokeDasharray = circumference;
+            charProgressCircle.style.strokeDashoffset = offset;
+        }
+        
+        if (remaining < 0) {
+            if (charCountText) charCountText.className = 'char-count danger';
+            if (charProgressCircle) charProgressCircle.style.stroke = 'var(--error)';
+        } else if (remaining <= 40) {
+            if (charCountText) charCountText.className = 'char-count warning';
+            if (charProgressCircle) charProgressCircle.style.stroke = 'var(--warning)';
+        } else {
+            if (charCountText) charCountText.className = 'char-count';
+            if (charProgressCircle) charProgressCircle.style.stroke = 'var(--primary-accent)';
+        }
+    }
+
+    function checkPostButtonStateForThread() {
+        const hasOverLimit = activeTweets.some(txt => txt.length > 280);
+        
+        if (hasOverLimit) {
+            btnPostTweet.disabled = true;
+            btnPostTweet.style.opacity = 0.5;
+            btnPostTweet.style.cursor = 'not-allowed';
+        } else {
             btnPostTweet.disabled = false;
             btnPostTweet.style.opacity = 1;
             btnPostTweet.style.cursor = 'pointer';
@@ -387,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnRefresh.addEventListener('click', fetchReleaseNotes);
     btnRetry.addEventListener('click', fetchReleaseNotes);
     
-    // Search input typing (debounced slightly or real-time)
+    // Search input typing
     searchInput.addEventListener('input', (e) => {
         currentSearchQuery = e.target.value.toLowerCase().trim();
         
@@ -436,12 +718,67 @@ document.addEventListener('DOMContentLoaded', () => {
         renderUpdates();
     });
 
+    // Select All Filtered button listener (Change 1)
+    if (btnSelectAllFiltered) {
+        btnSelectAllFiltered.addEventListener('click', () => {
+            // Get currently filtered visible updates
+            const filtered = releaseUpdates.filter(up => {
+                let matchesType = false;
+                if (currentFilterType === 'all') {
+                    matchesType = true;
+                } else if (currentFilterType.toLowerCase() === 'feature') {
+                    matchesType = up.type.toLowerCase() === 'feature';
+                } else if (currentFilterType.toLowerCase() === 'issue') {
+                    matchesType = ['issue', 'fixed', 'known issue'].includes(up.type.toLowerCase());
+                } else if (currentFilterType.toLowerCase() === 'changed') {
+                    matchesType = ['change', 'changed', 'breaking', 'deprecated'].includes(up.type.toLowerCase());
+                } else if (currentFilterType.toLowerCase() === 'announcement') {
+                    matchesType = up.type.toLowerCase() === 'announcement';
+                }
+                
+                const matchesSearch = !currentSearchQuery || 
+                    up.date.toLowerCase().includes(currentSearchQuery) ||
+                    up.type.toLowerCase().includes(currentSearchQuery) ||
+                    up.text.toLowerCase().includes(currentSearchQuery);
+                    
+                return matchesType && matchesSearch;
+            });
+            
+            const allFilteredSelected = filtered.every(up => selectedUpdateIds.has(up.id));
+            
+            if (allFilteredSelected) {
+                // Deselect all filtered
+                filtered.forEach(up => {
+                    selectedUpdateIds.delete(up.id);
+                    const cb = document.querySelector(`.note-checkbox[data-id="${up.id}"]`);
+                    if (cb) cb.checked = false;
+                    const card = document.getElementById(`card-${up.id}`);
+                    if (card) card.classList.remove('selected');
+                });
+                showToast(`Deselected ${filtered.length} updates`);
+            } else {
+                // Select all filtered
+                filtered.forEach(up => {
+                    selectedUpdateIds.add(up.id);
+                    const cb = document.querySelector(`.note-checkbox[data-id="${up.id}"]`);
+                    if (cb) cb.checked = true;
+                    const card = document.getElementById(`card-${up.id}`);
+                    if (card) card.classList.add('selected');
+                });
+                showToast(`Selected ${filtered.length} updates`);
+            }
+            
+            renderUpdates();
+        });
+    }
+
     // Deselect All
     btnDeselectAll.addEventListener('click', () => {
         selectedUpdateIds.clear();
         document.querySelectorAll('.note-checkbox').forEach(cb => cb.checked = false);
         document.querySelectorAll('.note-card').forEach(card => card.classList.remove('selected'));
         updateSelectionUI();
+        syncSelectAllButtonState();
     });
 
     // Tweet Selected
@@ -459,17 +796,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === tweetModal) closeTweetModal();
     });
 
-    // Textarea typing character count
-    tweetTextarea.addEventListener('input', updateCharCount);
-
     // Copy Tweet Content
     btnCopyTweet.addEventListener('click', () => {
-        const text = tweetTextarea.value;
-        navigator.clipboard.writeText(text).then(() => {
+        if (activeTweets.length === 0) return;
+
+        let textToCopy = "";
+        let successMessage = "";
+        
+        if (activeTweets.length === 1) {
+            textToCopy = activeTweets[0];
+            successMessage = 'Tweet text copied to clipboard!';
+        } else {
+            // Join all tweets with dividers
+            textToCopy = activeTweets.map((t, i) => `[Tweet ${i + 1}/${activeTweets.length}]\n${t}`).join('\n\n====================\n\n');
+            successMessage = 'Entire thread copied to clipboard!';
+        }
+        
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            const originalText = activeTweets.length === 1 ? 'Copy Text' : 'Copy Entire Thread';
             copyTextSpan.textContent = 'Copied!';
-            showToast('Tweet text copied to clipboard!');
+            showToast(successMessage);
             setTimeout(() => {
-                copyTextSpan.textContent = 'Copy Text';
+                copyTextSpan.textContent = originalText;
             }, 2000);
         }).catch(err => {
             console.error('Clipboard copy failed:', err);
@@ -479,9 +827,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Post Tweet Intent
     btnPostTweet.addEventListener('click', () => {
-        const text = tweetTextarea.value;
-        const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+        if (activeTweets.length === 0) return;
+        
+        // Open Web Intent for the 1st tweet
+        const firstTweet = activeTweets[0];
+        const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(firstTweet)}`;
         window.open(twitterUrl, '_blank', 'noopener,noreferrer');
+        
+        // If it's a thread, copy the remaining tweets to help the user thread them
+        if (activeTweets.length > 1) {
+            showToast('Posted 1st tweet! Copied remaining tweets to clipboard.');
+            const remainingText = activeTweets.slice(1).map((t, i) => `[Reply ${i + 1}]\n${t}`).join('\n\n');
+            navigator.clipboard.writeText(remainingText).catch(e => console.error(e));
+        }
+        
         closeTweetModal();
     });
 
@@ -497,7 +856,19 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 // If not, export visible filtered items
                 itemsToExport = releaseUpdates.filter(up => {
-                    const matchesType = currentFilterType === 'all' || up.type.toLowerCase() === currentFilterType.toLowerCase();
+                    let matchesType = false;
+                    if (currentFilterType === 'all') {
+                        matchesType = true;
+                    } else if (currentFilterType.toLowerCase() === 'feature') {
+                        matchesType = up.type.toLowerCase() === 'feature';
+                    } else if (currentFilterType.toLowerCase() === 'issue') {
+                        matchesType = ['issue', 'fixed', 'known issue'].includes(up.type.toLowerCase());
+                    } else if (currentFilterType.toLowerCase() === 'changed') {
+                        matchesType = ['change', 'changed', 'breaking', 'deprecated'].includes(up.type.toLowerCase());
+                    } else if (currentFilterType.toLowerCase() === 'announcement') {
+                        matchesType = up.type.toLowerCase() === 'announcement';
+                    }
+                    
                     const matchesSearch = !currentSearchQuery || 
                         up.date.toLowerCase().includes(currentSearchQuery) ||
                         up.type.toLowerCase().includes(currentSearchQuery) ||

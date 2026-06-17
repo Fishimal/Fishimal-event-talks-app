@@ -85,6 +85,15 @@
                     <h2 class="stat-value" id="val-changes">-</h2>
                 </div>
             </div>
+            <div class="stat-card" id="stat-announcements">
+                <div class="stat-icon-wrapper teal">
+                    <i class="fa-solid fa-bullhorn"></i>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-label">Announcements</span>
+                    <h2 class="stat-value" id="val-announcements">-</h2>
+                </div>
+            </div>
         </section>
 
         <!-- Filters & Search Toolbar -->
@@ -97,15 +106,21 @@
                 </button>
             </div>
             
-            <div class="filter-wrapper">
-                <span class="filter-label">Filter by type:</span>
-                <div class="filter-tags" id="type-filters">
-                    <button class="filter-tag active" data-type="all">All</button>
-                    <button class="filter-tag" data-type="Feature">Features</button>
-                    <button class="filter-tag" data-type="Issue">Issues</button>
-                    <button class="filter-tag" data-type="Changed">Changed</button>
-                    <button class="filter-tag" data-type="Deprecated">Deprecated</button>
+            <div class="filter-wrapper" style="width: 100%; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    <span class="filter-label">Filter by type:</span>
+                    <div class="filter-tags" id="type-filters">
+                        <button class="filter-tag active" data-type="all">All</button>
+                        <button class="filter-tag" data-type="Feature">Features</button>
+                        <button class="filter-tag" data-type="Issue">Issues</button>
+                        <button class="filter-tag" data-type="Changed">Changes</button>
+                        <button class="filter-tag" data-type="Announcement">Announcements</button>
+                    </div>
                 </div>
+                <button id="btn-select-all-filtered" class="btn btn-secondary btn-sm" title="Select all currently visible updates" style="display: none;">
+                    <i class="fa-solid fa-square-check"></i>
+                    <span>Select All Visible</span>
+                </button>
             </div>
         </section>
 
@@ -180,26 +195,8 @@
                 </button>
             </div>
             
-            <div class="modal-body">
-                <div class="tweet-preview-header">
-                    <div class="avatar">BQ</div>
-                    <div class="user-meta">
-                        <span class="user-name">BigQuery News</span>
-                        <span class="user-handle">@BigQueryRelease</span>
-                    </div>
-                </div>
-                
-                <textarea id="tweet-textarea" class="tweet-textarea" placeholder="What's happening in BigQuery?"></textarea>
-                
-                <div class="tweet-meta-controls">
-                    <div class="tweet-char-counter">
-                        <svg class="progress-ring" width="36" height="36">
-                            <circle class="progress-ring__circle-bg" stroke="var(--ring-bg)" stroke-width="3" fill="transparent" r="14" cx="18" cy="18" />
-                            <circle class="progress-ring__circle" id="char-progress" stroke="#06b6d4" stroke-width="3" fill="transparent" r="14" cx="18" cy="18" />
-                        </svg>
-                        <span class="char-count" id="char-count-text">280</span>
-                    </div>
-                </div>
+            <div class="modal-body" id="modal-body-container">
+                <!-- Dynamically populated via JS -->
             </div>
             
             <div class="modal-footer">

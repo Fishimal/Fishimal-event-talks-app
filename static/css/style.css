@@ -994,3 +994,52 @@ body {
 .toast-icon {
     font-size: 1.1rem;
 }
+
+/* Announcement Badge & Stats Icon Styles */
+.badge.announcement {
+    background-color: rgba(20, 184, 166, 0.1);
+    color: #14b8a6;
+}
+
+.stat-icon-wrapper.teal {
+    background-color: rgba(20, 184, 166, 0.1);
+    color: #14b8a6;
+}
+
+/* Thread Composer layout */
+.thread-composer {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    position: relative;
+    padding-left: 0.5rem;
+}
+
+.thread-tweet-item {
+    position: relative;
+    background: rgba(255, 255, 255, 0.01);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    transition: var(--transition-smooth);
+}
+
+body.light-mode .thread-tweet-item {
+    background: rgba(15, 23, 42, 0.02);
+}
+
+.thread-tweet-item:hover {
+    border-color: rgba(6, 182, 212, 0.15);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+body.light-mode .thread-tweet-item:hover {
+    background: rgba(15, 23, 42, 0.04);
+}
+
+.thread-tweet-item .tweet-textarea {
+    margin-top: 0.5rem;
+    height: 110px;
+    font-size: 0.95rem;
+}
+
