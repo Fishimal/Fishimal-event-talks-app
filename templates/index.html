@@ -32,7 +32,10 @@
                 </div>
             </div>
             
-            <div class="header-actions" style="display: flex; gap: 0.5rem;">
+            <div class="header-actions" style="display: flex; gap: 0.5rem; align-items: center;">
+                <button id="theme-toggle" class="btn btn-secondary theme-toggle-btn" title="Toggle Light/Dark Mode" style="width: 42px; height: 42px; padding: 0; display: inline-flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-moon theme-toggle-icon" id="theme-icon"></i>
+                </button>
                 <button id="btn-export-csv" class="btn btn-secondary" title="Export current updates to CSV" style="display: none;">
                     <i class="fa-solid fa-file-csv"></i>
                     <span>Export CSV</span>
@@ -191,7 +194,7 @@
                 <div class="tweet-meta-controls">
                     <div class="tweet-char-counter">
                         <svg class="progress-ring" width="36" height="36">
-                            <circle class="progress-ring__circle-bg" stroke="#1f293d" stroke-width="3" fill="transparent" r="14" cx="18" cy="18" />
+                            <circle class="progress-ring__circle-bg" stroke="var(--ring-bg)" stroke-width="3" fill="transparent" r="14" cx="18" cy="18" />
                             <circle class="progress-ring__circle" id="char-progress" stroke="#06b6d4" stroke-width="3" fill="transparent" r="14" cx="18" cy="18" />
                         </svg>
                         <span class="char-count" id="char-count-text">280</span>
